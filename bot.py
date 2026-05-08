@@ -1,4 +1,3 @@
-import asyncio
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -7,20 +6,29 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 )
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler
+from aiohttp import web
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+PORT = int(os.environ.get("PORT", 10000))
 
-if not BOT_TOKEN or not ADMIN_CHAT_ID:
-    raise ValueError("Проверьте .env: BOT_TOKEN и ADMIN_CHAT_ID должны быть заданы")
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN не задан")
+if not ADMIN_CHAT_ID:
+    raise ValueError("ADMIN_CHAT_ID не задан")
+if not WEBHOOK_URL:
+    raise ValueError("WEBHOOK_URL не задан")
+
+ADMIN_CHAT_ID = int(ADMIN_CHAT_ID)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Состояния анкеты
 class CourierForm(StatesGroup):
     name = State()
     city = State()
@@ -30,7 +38,6 @@ class CourierForm(StatesGroup):
     ready_date = State()
     phone = State()
 
-# Клавиатуры
 start_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="📝 Оставить заявку")]],
     resize_keyboard=True
@@ -126,9 +133,24 @@ async def process_phone_text(message: types.Message, state: FSMContext):
         reply_markup=phone_kb
     )
 
-async def main():
-    print("Бот @rabota_curierom_bot запущен...")
-    await dp.start_polling(bot)
+async def on_startup():
+    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    print(f"✅ Webhook установлен на {WEBHOOK_URL}/webhook")
+
+async def health(request):
+    return web.Response(text="Bot is running")
+
+def main():
+    app = web.Application()
+    app.router.add_get("/", health)
+    app.router.add_get("/health", health)
+
+    handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
+    handler.register(app, path="/webhook")
+
+    app.on_startup.append(lambda _: on_startup())
+    web.run_app(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
