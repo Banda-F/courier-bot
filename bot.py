@@ -33,7 +33,7 @@ ADMIN_CHAT_ID = int(ADMIN_CHAT_ID)
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 
-# Инициализация бота
+# --- Инициализация бота ---
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
@@ -87,19 +87,13 @@ async def start_form(message: types.Message, state: FSMContext):
 async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text.strip())
     await state.set_state(CourierForm.city)
-    await message.answer(
-        "🌆 *В каком городе планируете работать?*",
-        parse_mode="Markdown"
-    )
+    await message.answer("🌆 *В каком городе планируете работать?*", parse_mode="Markdown")
 
 @dp.message(CourierForm.city)
 async def process_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text.strip())
     await state.set_state(CourierForm.age)
-    await message.answer(
-        "🎂 *Сколько вам лет?* (только цифры)",
-        parse_mode="Markdown"
-    )
+    await message.answer("🎂 *Сколько вам лет?* (только цифры)", parse_mode="Markdown")
 
 @dp.message(CourierForm.age)
 async def process_age(message: types.Message, state: FSMContext):
@@ -181,6 +175,8 @@ async def process_phone_contact(message: types.Message, state: FSMContext):
             print(f"✅ Добавлена строка в Google Sheets: {data['name']}")
         except Exception as e:
             print(f"❌ Ошибка записи в Google Sheets: {e}")
+    else:
+        print("ℹ️ Google Sheets не настроен: пропускаем запись")
 
     # --- Финальное сообщение ---
     await message.answer(
@@ -203,7 +199,7 @@ async def process_phone_text(message: types.Message, state: FSMContext):
         reply_markup=phone_kb
     )
 
-# --- Обработчик /faq (добавим для удобства) ---
+# --- Обработчик /faq ---
 @dp.message(Command("faq"))
 async def faq(message: types.Message):
     text = (
